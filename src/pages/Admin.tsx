@@ -44,6 +44,24 @@ const Admin = () => {
   const [contas, setContas] = useState<ContaOption[]>([]);
   const [selectedConta, setSelectedConta] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Auth check - redirect if not admin
+  useEffect(() => {
+    const user = localStorage.getItem("nu_user") || sessionStorage.getItem("nu_user");
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(user);
+      if (!parsed.is_admin) {
+        navigate("/painel");
+      }
+    } catch {
+      navigate("/login");
+    }
+  }, [navigate]);
 
   // Extrato state
   const [extratoData, setExtratoData] = useState<any>(null);
@@ -72,8 +90,10 @@ const Admin = () => {
       if (contasList.length > 0 && !selectedConta) {
         setSelectedConta(String(contasList[0].conta_id));
       }
-    } catch {
-      toast.error("Erro ao carregar usuários");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao carregar usuários";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -168,7 +188,11 @@ const Admin = () => {
             <h1 className="text-2xl font-extrabold nu-text-gradient">NU</h1>
             <span className="text-sm text-muted-foreground font-medium bg-secondary px-3 py-1 rounded-full">Administração</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            localStorage.removeItem("nu_user");
+            sessionStorage.removeItem("nu_user");
+            navigate("/login");
+          }}>
             <LogOut className="h-4 w-4 mr-2" /> Sair
           </Button>
         </div>
@@ -429,6 +453,12 @@ const Admin = () => {
               <CardContent>
                 {loading ? (
                   <p className="text-muted-foreground">Carregando...</p>
+                ) : errorMsg ? (
+                  <div className="text-center py-4">
+                    <p className="text-destructive mb-2">Erro ao carregar clientes:</p>
+                    <p className="text-sm text-muted-foreground">{errorMsg}</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={fetchUsuarios}>Tentar novamente</Button>
+                  </div>
                 ) : usuarios.length === 0 ? (
                   <p className="text-muted-foreground">Nenhum cliente cadastrado ainda.</p>
                 ) : (
