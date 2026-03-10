@@ -90,8 +90,10 @@ const Admin = () => {
       if (contasList.length > 0 && !selectedConta) {
         setSelectedConta(String(contasList[0].conta_id));
       }
-    } catch {
-      toast.error("Erro ao carregar usuários");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao carregar usuários";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
