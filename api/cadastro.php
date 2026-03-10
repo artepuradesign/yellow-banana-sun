@@ -31,9 +31,16 @@ try {
         throw new Exception('E-mail inválido');
     }
 
+    // PIN de 4 dígitos (obrigatório)
+    $pin = $data['pin'] ?? '';
+    if (!preg_match('/^\d{4}$/', $pin)) {
+        throw new Exception('PIN deve ter exatamente 4 dígitos numéricos');
+    }
+    $pinHash = password_hash($pin, PASSWORD_BCRYPT);
+
     // Criar usuário
-    $stmt = $pdo->prepare("INSERT INTO usuarios (email, senha_hash, tipo_conta) VALUES (?, ?, ?)");
-    $stmt->execute([$email, $senha, $tipo]);
+    $stmt = $pdo->prepare("INSERT INTO usuarios (email, senha_hash, pin_hash, tipo_conta) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$email, $senha, $pinHash, $tipo]);
     $userId = $pdo->lastInsertId();
 
     // Dados específicos PF ou PJ

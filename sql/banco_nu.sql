@@ -13,6 +13,7 @@ CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     senha_hash VARCHAR(255) NOT NULL,
+    pin_hash VARCHAR(255) NULL COMMENT 'Senha de 4 dígitos para transações e login alternativo',
     tipo_conta ENUM('PF', 'PJ') NOT NULL,
     status ENUM('pendente', 'ativo', 'bloqueado', 'encerrado') NOT NULL DEFAULT 'pendente',
     is_admin TINYINT(1) NOT NULL DEFAULT 0,

@@ -18,13 +18,13 @@ const Cadastro = () => {
   const [loading, setLoading] = useState(false);
 
   const [pf, setPf] = useState({
-    nome: "", cpf: "", dataNascimento: "", email: "", telefone: "", senha: "", confirmarSenha: "",
+    nome: "", cpf: "", dataNascimento: "", email: "", telefone: "", senha: "", confirmarSenha: "", pin: "", confirmarPin: "",
     cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
   });
 
   const [pj, setPj] = useState({
     razaoSocial: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "",
-    email: "", telefone: "", senha: "", confirmarSenha: "",
+    email: "", telefone: "", senha: "", confirmarSenha: "", pin: "", confirmarPin: "",
     cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
     responsavelNome: "", responsavelCpf: "", responsavelTelefone: "",
   });
@@ -35,9 +35,11 @@ const Cadastro = () => {
   const handleSubmitPf = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pf.senha !== pf.confirmarSenha) { toast.error("As senhas não conferem!"); return; }
+    if (pf.pin !== pf.confirmarPin) { toast.error("Os PINs não conferem!"); return; }
+    if (!/^\d{4}$/.test(pf.pin)) { toast.error("O PIN deve ter exatamente 4 dígitos numéricos!"); return; }
     setLoading(true);
     try {
-      await apiPost("cadastro.php", { tipo: "PF", nome: pf.nome, cpf: pf.cpf, dataNascimento: pf.dataNascimento, email: pf.email, telefone: pf.telefone, senha: pf.senha, cep: pf.cep, endereco: pf.endereco, numero: pf.numero, complemento: pf.complemento, bairro: pf.bairro, cidade: pf.cidade, estado: pf.estado });
+      await apiPost("cadastro.php", { tipo: "PF", nome: pf.nome, cpf: pf.cpf, dataNascimento: pf.dataNascimento, email: pf.email, telefone: pf.telefone, senha: pf.senha, pin: pf.pin, cep: pf.cep, endereco: pf.endereco, numero: pf.numero, complemento: pf.complemento, bairro: pf.bairro, cidade: pf.cidade, estado: pf.estado });
       toast.success("Cadastro realizado com sucesso!");
       setSubmitted(true);
     } catch (err: unknown) {
@@ -48,9 +50,11 @@ const Cadastro = () => {
   const handleSubmitPj = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pj.senha !== pj.confirmarSenha) { toast.error("As senhas não conferem!"); return; }
+    if (pj.pin !== pj.confirmarPin) { toast.error("Os PINs não conferem!"); return; }
+    if (!/^\d{4}$/.test(pj.pin)) { toast.error("O PIN deve ter exatamente 4 dígitos numéricos!"); return; }
     setLoading(true);
     try {
-      await apiPost("cadastro.php", { tipo: "PJ", razaoSocial: pj.razaoSocial, nomeFantasia: pj.nomeFantasia, cnpj: pj.cnpj, inscricaoEstadual: pj.inscricaoEstadual, email: pj.email, telefone: pj.telefone, senha: pj.senha, responsavelNome: pj.responsavelNome, responsavelCpf: pj.responsavelCpf, responsavelTelefone: pj.responsavelTelefone, cep: pj.cep, endereco: pj.endereco, numero: pj.numero, complemento: pj.complemento, bairro: pj.bairro, cidade: pj.cidade, estado: pj.estado });
+      await apiPost("cadastro.php", { tipo: "PJ", razaoSocial: pj.razaoSocial, nomeFantasia: pj.nomeFantasia, cnpj: pj.cnpj, inscricaoEstadual: pj.inscricaoEstadual, email: pj.email, telefone: pj.telefone, senha: pj.senha, pin: pj.pin, responsavelNome: pj.responsavelNome, responsavelCpf: pj.responsavelCpf, responsavelTelefone: pj.responsavelTelefone, cep: pj.cep, endereco: pj.endereco, numero: pj.numero, complemento: pj.complemento, bairro: pj.bairro, cidade: pj.cidade, estado: pj.estado });
       toast.success("Cadastro realizado com sucesso!");
       setSubmitted(true);
     } catch (err: unknown) {
@@ -176,6 +180,19 @@ const Cadastro = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-4">
+                    <SectionTitle>PIN de transações (4 dígitos)</SectionTitle>
+                    <p className="text-xs text-muted-foreground">Este PIN será usado para autorizar transferências e também pode ser usado para login.</p>
+                    <div>
+                      <Label htmlFor="pf-pin">PIN *</Label>
+                      <Input id="pf-pin" type="password" required value={pf.pin} onChange={e => handlePfChange("pin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
+                    </div>
+                    <div>
+                      <Label htmlFor="pf-confirmar-pin">Confirmar PIN *</Label>
+                      <Input id="pf-confirmar-pin" type="password" required value={pf.confirmarPin} onChange={e => handlePfChange("confirmarPin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
+                    </div>
+                  </div>
+
                   <Button type="submit" variant="hero" className="w-full py-5 rounded-xl" disabled={loading}>
                     {loading ? "Cadastrando..." : "Criar minha conta"}
                   </Button>
@@ -270,6 +287,19 @@ const Cadastro = () => {
                     <div>
                       <Label htmlFor="pj-confirmar">Confirmar senha *</Label>
                       <Input id="pj-confirmar" type="password" required value={pj.confirmarSenha} onChange={e => handlePjChange("confirmarSenha", e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <SectionTitle>PIN de transações (4 dígitos)</SectionTitle>
+                    <p className="text-xs text-muted-foreground">Este PIN será usado para autorizar transferências e também pode ser usado para login.</p>
+                    <div>
+                      <Label htmlFor="pj-pin">PIN *</Label>
+                      <Input id="pj-pin" type="password" required value={pj.pin} onChange={e => handlePjChange("pin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
+                    </div>
+                    <div>
+                      <Label htmlFor="pj-confirmar-pin">Confirmar PIN *</Label>
+                      <Input id="pj-confirmar-pin" type="password" required value={pj.confirmarPin} onChange={e => handlePjChange("confirmarPin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
                     </div>
                   </div>
 
