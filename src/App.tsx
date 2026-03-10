@@ -8,6 +8,7 @@ import Cadastro from "./pages/Cadastro.tsx";
 import Login from "./pages/Login.tsx";
 import Admin from "./pages/Admin.tsx";
 import Painel from "./pages/Painel.tsx";
+import ExtratoExport from "./pages/ExtratoExport.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
