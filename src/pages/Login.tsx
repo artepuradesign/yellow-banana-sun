@@ -118,7 +118,7 @@ const Login = () => {
                 <form onSubmit={handleLoginPf} className="space-y-4">
                   <div>
                     <Label htmlFor="login-cpf">CPF</Label>
-                    <Input id="login-cpf" required value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" />
+                    <Input id="login-cpf" required value={cpf} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 11); setCpf(v); }} placeholder="00000000000" maxLength={11} inputMode="numeric" />
                   </div>
                   <div>
                     <Label htmlFor="senha-pf">Senha</Label>
