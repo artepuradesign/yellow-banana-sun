@@ -15,8 +15,23 @@ $data = json_decode(file_get_contents('php://input'), true);
 
 try {
     $pdo = getConnection();
-    $stmt = $pdo->prepare("SELECT id, email, senha_hash, tipo_conta, status, is_admin FROM usuarios WHERE email = ?");
-    $stmt->execute([$data['email']]);
+
+    // Determinar tipo de login: CPF, CNPJ ou Email
+    if (!empty($data['cpf'])) {
+        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_fisicas pf ON pf.usuario_id = u.id WHERE pf.cpf = ?");
+        $stmt->execute([$data['cpf']]);
+    } elseif (!empty($data['cnpj'])) {
+        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_juridicas pj ON pj.usuario_id = u.id WHERE pj.cnpj = ?");
+        $stmt->execute([$data['cnpj']]);
+    } elseif (!empty($data['email'])) {
+        $stmt = $pdo->prepare("SELECT id, email, senha_hash, tipo_conta, status, is_admin FROM usuarios WHERE email = ?");
+        $stmt->execute([$data['email']]);
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'Informe CPF, CNPJ ou E-mail']);
+        exit();
+    }
+
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($data['senha'], $user['senha_hash'])) {
@@ -25,9 +40,9 @@ try {
         exit();
     }
 
-    if ($user['status'] !== 'ativo') {
+    if ($user['status'] !== 'ativo' && !$user['is_admin']) {
         http_response_code(403);
-        echo json_encode(['error' => 'Conta não está ativa']);
+        echo json_encode(['error' => 'Conta aguardando aprovação do administrador']);
         exit();
     }
 
