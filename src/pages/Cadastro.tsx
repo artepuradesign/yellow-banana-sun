@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, User, Building2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
+import { ESTADOS_BR } from "@/lib/estados";
 
 const Cadastro = () => {
   const [searchParams] = useSearchParams();
