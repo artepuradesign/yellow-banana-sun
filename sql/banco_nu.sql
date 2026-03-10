@@ -233,7 +233,8 @@ CREATE TABLE configuracoes_sistema (
 -- DADOS INICIAIS
 -- =====================================================
 
--- Admin padrão (senha: admin123 - hash bcrypt)
+-- Admin padrão (senha: password - hash bcrypt)
+-- IMPORTANTE: Após inserir, use o script api/reset_admin.php para definir uma nova senha
 INSERT INTO usuarios (email, senha_hash, tipo_conta, status, is_admin) VALUES
 ('admin@nu.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'PF', 'ativo', 1);
 
