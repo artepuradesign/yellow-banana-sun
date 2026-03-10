@@ -46,7 +46,7 @@ try {
 
     if ($user['status'] !== 'ativo' && !$user['is_admin']) {
         http_response_code(403);
-        echo json_encode(['error' => 'Conta aguardando aprovação do administrador']);
+        echo json_encode(['error' => 'Aguarde, seu cadastro está em Verificação.']);
         exit();
     }
 

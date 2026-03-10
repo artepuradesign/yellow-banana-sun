@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,86 +10,154 @@ import {
 } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  LogOut, Plus, FileText, Users, TrendingUp, TrendingDown, DollarSign,
+  LogOut, Plus, FileText, Users, TrendingUp, TrendingDown, DollarSign, Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiGet, apiPost } from "@/lib/api";
 
-interface Transacao {
+interface Usuario {
   id: number;
-  data: string;
-  tipo: "entrada" | "saida";
-  descricao: string;
-  categoria: string;
-  valor: number;
-  beneficiario: string;
+  email: string;
+  tipo_conta: string;
+  status: string;
+  nome: string;
   documento: string;
-  banco: string;
+  telefone_pf: string | null;
+  telefone_pj: string | null;
+  conta_id: number;
+  numero_conta: string;
   agencia: string;
-  conta: string;
+  saldo: number;
+  created_at: string;
 }
 
-const mockTransacoes: Transacao[] = [
-  {
-    id: 1, data: "2025-03-10", tipo: "entrada", descricao: "Transferência recebida pelo Pix",
-    categoria: "PIX", valor: 7800, beneficiario: "LUIS R F CARVALHO SILVA",
-    documento: "•••.815.893-••", banco: "BCO DO BRASIL S.A.", agencia: "3507", conta: "74113-2",
-  },
-  {
-    id: 2, data: "2025-03-10", tipo: "saida", descricao: "Transferência enviada pelo Pix",
-    categoria: "PIX", valor: 1068, beneficiario: "THIAGO PEDROSA LIMA",
-    documento: "•••.460.413-••", banco: "BCO SANTANDER", agencia: "1836", conta: "1001518-6",
-  },
-  {
-    id: 3, data: "2025-03-11", tipo: "entrada", descricao: "Transferência recebida pelo Pix",
-    categoria: "PIX", valor: 10000, beneficiario: "MONTE C C LTDA",
-    documento: "14.190.481/0001-50", banco: "BCO DO BRASIL S.A.", agencia: "4249", conta: "16248-5",
-  },
-  {
-    id: 4, data: "2025-03-13", tipo: "saida", descricao: "Transferência enviada pelo Pix",
-    categoria: "PIX", valor: 15000, beneficiario: "LIMA CONSTRUCOES",
-    documento: "34.349.810/0001-70", banco: "BCO SANTANDER", agencia: "2410", conta: "13000010-4",
-  },
-];
+interface ContaOption {
+  conta_id: number;
+  titular: string;
+  documento: string;
+  numero_conta: string;
+}
 
 const Admin = () => {
   const navigate = useNavigate();
-  const [transacoes, setTransacoes] = useState<Transacao[]>(mockTransacoes);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [contas, setContas] = useState<ContaOption[]>([]);
+  const [selectedConta, setSelectedConta] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+
+  // Extrato state
+  const [extratoData, setExtratoData] = useState<any>(null);
+  const [extratoLoading, setExtratoLoading] = useState(false);
+
+  // Nova transação
   const [novaTransacao, setNovaTransacao] = useState({
     data: "", tipo: "entrada" as "entrada" | "saida", descricao: "Transferência recebida pelo Pix",
     categoria: "PIX", valor: "", beneficiario: "", documento: "", banco: "", agencia: "", conta: "",
   });
 
-  const saldoInicial = 20120.28;
-  const totalEntradas = transacoes.filter(t => t.tipo === "entrada").reduce((s, t) => s + t.valor, 0);
-  const totalSaidas = transacoes.filter(t => t.tipo === "saida").reduce((s, t) => s + t.valor, 0);
-  const saldoFinal = saldoInicial + totalEntradas - totalSaidas;
+  const fetchUsuarios = useCallback(async () => {
+    try {
+      const res = await apiGet<{ usuarios: Usuario[] }>("admin.php", { action: "usuarios" });
+      setUsuarios(res.usuarios);
+      // Build contas list from usuarios
+      const contasList: ContaOption[] = res.usuarios
+        .filter(u => u.conta_id)
+        .map(u => ({
+          conta_id: u.conta_id,
+          titular: u.nome,
+          documento: u.documento,
+          numero_conta: u.numero_conta,
+        }));
+      setContas(contasList);
+      if (contasList.length > 0 && !selectedConta) {
+        setSelectedConta(String(contasList[0].conta_id));
+      }
+    } catch {
+      toast.error("Erro ao carregar usuários");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedConta]);
 
-  const handleAddTransacao = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchUsuarios();
+  }, [fetchUsuarios]);
+
+  // Load extrato when conta changes
+  const fetchExtrato = useCallback(async (contaId: string) => {
+    if (!contaId) return;
+    setExtratoLoading(true);
+    try {
+      const res = await apiGet<any>("admin.php", {
+        action: "transacoes",
+        conta_id: contaId,
+      });
+      setExtratoData(res);
+    } catch {
+      toast.error("Erro ao carregar extrato");
+    } finally {
+      setExtratoLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedConta) fetchExtrato(selectedConta);
+  }, [selectedConta, fetchExtrato]);
+
+  const handleAddTransacao = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nova: Transacao = {
-      id: Date.now(),
-      ...novaTransacao,
-      valor: parseFloat(novaTransacao.valor),
-    };
-    setTransacoes(prev => [...prev, nova]);
-    setNovaTransacao({
-      data: "", tipo: "entrada", descricao: "Transferência recebida pelo Pix",
-      categoria: "PIX", valor: "", beneficiario: "", documento: "", banco: "", agencia: "", conta: "",
-    });
-    toast.success("Lançamento adicionado com sucesso!");
+    if (!selectedConta) {
+      toast.error("Selecione uma conta primeiro");
+      return;
+    }
+    try {
+      await apiPost("admin.php", {
+        action: "criar_transacao",
+        conta_id: parseInt(selectedConta),
+        tipo: novaTransacao.tipo,
+        categoria: novaTransacao.categoria,
+        descricao: novaTransacao.descricao,
+        valor: parseFloat(novaTransacao.valor),
+        data_transacao: novaTransacao.data,
+        beneficiario_nome: novaTransacao.beneficiario,
+        beneficiario_documento: novaTransacao.documento,
+        beneficiario_banco: novaTransacao.banco,
+        beneficiario_agencia: novaTransacao.agencia,
+        beneficiario_conta: novaTransacao.conta,
+      });
+      toast.success("Lançamento adicionado com sucesso!");
+      setNovaTransacao({
+        data: "", tipo: "entrada", descricao: "Transferência recebida pelo Pix",
+        categoria: "PIX", valor: "", beneficiario: "", documento: "", banco: "", agencia: "", conta: "",
+      });
+      fetchExtrato(selectedConta);
+      fetchUsuarios();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao criar transação");
+    }
+  };
+
+  const handleStatusChange = async (userId: number, newStatus: string) => {
+    try {
+      await apiPost("admin.php", { action: "ativar_usuario", usuario_id: userId, status: newStatus });
+      toast.success(`Usuário ${newStatus === "ativo" ? "ativado" : "bloqueado"} com sucesso!`);
+      fetchUsuarios();
+    } catch {
+      toast.error("Erro ao atualizar status");
+    }
   };
 
   const formatCurrency = (v: number) =>
     v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Group transactions by date for statement
-  const transacoesPorDia = transacoes.reduce((acc, t) => {
-    if (!acc[t.data]) acc[t.data] = [];
-    acc[t.data].push(t);
-    return acc;
-  }, {} as Record<string, Transacao[]>);
+  // Extrato computed values
+  const resumo = extratoData?.resumo || { saldo_inicial: 0, total_entradas: 0, total_saidas: 0, rendimento_liquido: 0, saldo_final: 0 };
+  const contaInfo = extratoData?.conta || {};
+  const movimentacoes = extratoData?.movimentacoes || {};
+  const datasOrdenadas = Object.keys(movimentacoes).sort();
 
-  const datasOrdenadas = Object.keys(transacoesPorDia).sort();
+  // Summary cards use selected conta data
+  const selectedUser = usuarios.find(u => String(u.conta_id) === selectedConta);
 
   return (
     <div className="min-h-screen bg-secondary/30">
@@ -107,13 +175,32 @@ const Admin = () => {
       </header>
 
       <div className="container mx-auto px-6 py-8 max-w-6xl">
+        {/* Conta selector */}
+        {contas.length > 0 && (
+          <div className="mb-6">
+            <Label className="text-sm text-muted-foreground mb-2 block">Conta selecionada</Label>
+            <Select value={selectedConta} onValueChange={setSelectedConta}>
+              <SelectTrigger className="w-full md:w-96">
+                <SelectValue placeholder="Selecione uma conta" />
+              </SelectTrigger>
+              <SelectContent>
+                {contas.map(c => (
+                  <SelectItem key={c.conta_id} value={String(c.conta_id)}>
+                    {c.titular} - {c.documento} (Conta: {c.numero_conta})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Saldo Inicial", value: saldoInicial, icon: DollarSign, color: "text-muted-foreground" },
-            { label: "Total Entradas", value: totalEntradas, icon: TrendingUp, color: "text-nu-green", prefix: "+" },
-            { label: "Total Saídas", value: totalSaidas, icon: TrendingDown, color: "text-destructive", prefix: "-" },
-            { label: "Saldo Final", value: saldoFinal, icon: DollarSign, color: "text-primary" },
+            { label: "Saldo Atual", value: selectedUser ? parseFloat(String(selectedUser.saldo)) : 0, icon: DollarSign, color: "text-primary" },
+            { label: "Total Entradas", value: resumo.total_entradas, icon: TrendingUp, color: "text-nu-green", prefix: "+" },
+            { label: "Total Saídas", value: resumo.total_saidas, icon: TrendingDown, color: "text-destructive", prefix: "-" },
+            { label: "Saldo Final Período", value: resumo.saldo_final, icon: DollarSign, color: "text-foreground" },
           ].map((c, i) => (
             <Card key={i} className="nu-card border-0">
               <CardContent className="pt-6">
@@ -134,6 +221,7 @@ const Admin = () => {
             <TabsTrigger value="lancamentos" className="flex gap-2"><Plus className="h-4 w-4" /> Lançamentos</TabsTrigger>
             <TabsTrigger value="extrato" className="flex gap-2"><FileText className="h-4 w-4" /> Extrato</TabsTrigger>
             <TabsTrigger value="clientes" className="flex gap-2"><Users className="h-4 w-4" /> Clientes</TabsTrigger>
+            <TabsTrigger value="exportar" className="flex gap-2"><Download className="h-4 w-4" /> Exportar Extrato</TabsTrigger>
           </TabsList>
 
           {/* Lançamentos */}
@@ -207,146 +295,127 @@ const Admin = () => {
                 </form>
               </CardContent>
             </Card>
-
-            {/* Transaction list */}
-            <Card className="nu-card border-0">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground">Lançamentos recentes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Beneficiário</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {transacoes.map(t => (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-sm">{new Date(t.data + "T12:00:00").toLocaleDateString("pt-BR")}</TableCell>
-                        <TableCell>
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${t.tipo === "entrada" ? "bg-nu-green/10 text-nu-green" : "bg-destructive/10 text-destructive"}`}>
-                            {t.tipo === "entrada" ? "Entrada" : "Saída"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm">{t.descricao}</TableCell>
-                        <TableCell className="text-sm">{t.beneficiario}</TableCell>
-                        <TableCell className={`text-right font-medium ${t.tipo === "entrada" ? "text-nu-green" : "text-destructive"}`}>
-                          {t.tipo === "entrada" ? "+" : "-"}R$ {formatCurrency(t.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Extrato */}
           <TabsContent value="extrato">
             <Card className="nu-card border-0">
               <CardContent className="pt-6">
-                {/* Statement Header - Nubank style */}
-                <div className="flex justify-between items-start mb-8 pb-6 border-b border-border">
-                  <div>
-                    <h2 className="text-3xl font-extrabold nu-text-gradient mb-1">NU</h2>
-                  </div>
-                  <div className="text-right text-sm text-muted-foreground">
-                    <p className="font-semibold text-foreground">TPL CONSTRUCOES LTDA</p>
-                    <p><span className="font-semibold text-primary">CNPJ</span> 43.680.807/0001-25 <span className="font-semibold">Agência</span> 0001 <span className="font-semibold">Conta</span> 674432224-5</p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center mb-6 pb-4 border-b border-border">
-                  <h3 className="font-bold text-foreground">09 DE MARÇO DE 2025 a 08 DE MARÇO DE 2026</h3>
-                  <span className="text-sm text-muted-foreground">VALORES EM R$</span>
-                </div>
-
-                {/* Summary */}
-                <div className="grid md:grid-cols-2 gap-8 mb-8 pb-6 border-b border-border">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Saldo final do período</p>
-                    <p className="text-3xl font-bold text-foreground">R$ {formatCurrency(saldoFinal)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between"><span className="text-sm text-muted-foreground">Saldo inicial</span><span className="font-medium text-foreground">{formatCurrency(saldoInicial)}</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-muted-foreground">Rendimento líquido</span><span className="font-medium text-foreground">+0,00</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total de entradas</span><span className="font-medium text-nu-green">+{formatCurrency(totalEntradas)}</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total de saídas</span><span className="font-medium text-destructive">-{formatCurrency(totalSaidas)}</span></div>
-                    <div className="flex justify-between border-t border-border pt-2"><span className="font-semibold text-foreground">Saldo final do período</span><span className="font-bold text-foreground">{formatCurrency(saldoFinal)}</span></div>
-                  </div>
-                </div>
-
-                {/* Movimentações */}
-                <h3 className="font-bold text-foreground mb-6">Movimentações</h3>
-
-                {datasOrdenadas.map(data => {
-                  const trans = transacoesPorDia[data];
-                  const entradas = trans.filter(t => t.tipo === "entrada");
-                  const saidas = trans.filter(t => t.tipo === "saida");
-                  const totalDiaEntradas = entradas.reduce((s, t) => s + t.valor, 0);
-                  const totalDiaSaidas = saidas.reduce((s, t) => s + t.valor, 0);
-
-                  const dataFormatada = new Date(data + "T12:00:00").toLocaleDateString("pt-BR", {
-                    day: "2-digit", month: "short", year: "numeric",
-                  }).toUpperCase().replace(".", "");
-
-                  return (
-                    <div key={data} className="mb-6 pb-6 border-b border-border last:border-0">
-                      <h4 className="font-bold text-sm text-foreground mb-4">{dataFormatada}</h4>
-
-                      {entradas.length > 0 && (
-                        <>
-                          <div className="flex justify-between mb-2">
-                            <span className="font-semibold text-sm text-foreground">Total de entradas</span>
-                            <span className="font-semibold text-sm text-nu-green">+ {formatCurrency(totalDiaEntradas)}</span>
-                          </div>
-                          {entradas.map(t => (
-                            <div key={t.id} className="flex justify-between py-2 pl-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">{t.descricao}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {t.beneficiario} - {t.documento} - {t.banco} Agência: {t.agencia} Conta: {t.conta}
-                                </p>
-                              </div>
-                              <span className="font-medium text-foreground whitespace-nowrap ml-4">{formatCurrency(t.valor)}</span>
-                            </div>
-                          ))}
-                        </>
-                      )}
-
-                      {saidas.length > 0 && (
-                        <>
-                          <div className="flex justify-between mb-2 mt-4">
-                            <span className="font-semibold text-sm text-foreground">Total de saídas</span>
-                            <span className="font-semibold text-sm text-destructive">- {formatCurrency(totalDiaSaidas)}</span>
-                          </div>
-                          {saidas.map(t => (
-                            <div key={t.id} className="flex justify-between py-2 pl-4 text-sm">
-                              <div>
-                                <p className="text-muted-foreground">{t.descricao}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {t.beneficiario} - {t.documento} - {t.banco} Agência: {t.agencia} Conta: {t.conta}
-                                </p>
-                              </div>
-                              <span className="font-medium text-foreground whitespace-nowrap ml-4">{formatCurrency(t.valor)}</span>
-                            </div>
-                          ))}
-                        </>
-                      )}
+                {extratoLoading ? (
+                  <p className="text-muted-foreground text-center py-8">Carregando extrato...</p>
+                ) : !selectedConta ? (
+                  <p className="text-muted-foreground text-center py-8">Selecione uma conta para visualizar o extrato.</p>
+                ) : (
+                  <>
+                    {/* Statement Header */}
+                    <div className="flex justify-between items-start mb-8 pb-6 border-b border-border">
+                      <div>
+                        <h2 className="text-3xl font-extrabold nu-text-gradient mb-1">NU</h2>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <p className="font-semibold text-foreground">{contaInfo.titular || "—"}</p>
+                        <p>
+                          <span className="font-semibold text-primary">{contaInfo.tipo_conta === "PJ" ? "CNPJ" : "CPF"}</span> {contaInfo.documento || "—"}{" "}
+                          <span className="font-semibold">Agência</span> {contaInfo.agencia || "0001"}{" "}
+                          <span className="font-semibold">Conta</span> {contaInfo.numero_conta || "—"}
+                        </p>
+                      </div>
                     </div>
-                  );
-                })}
 
-                {/* Footer */}
-                <div className="text-xs text-muted-foreground mt-8 pt-4 border-t border-border space-y-1">
-                  <p>Tem alguma dúvida? Mande uma mensagem para nosso time de atendimento pelo chat do app ou ligue 4020 0185.</p>
-                  <p>Extrato gerado dia {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
-                </div>
+                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-border">
+                      <h3 className="font-bold text-foreground">
+                        {extratoData?.periodo ? `${new Date(extratoData.periodo.inicio + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).toUpperCase()} a ${new Date(extratoData.periodo.fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).toUpperCase()}` : "—"}
+                      </h3>
+                      <span className="text-sm text-muted-foreground">VALORES EM R$</span>
+                    </div>
+
+                    {/* Summary */}
+                    <div className="grid md:grid-cols-2 gap-8 mb-8 pb-6 border-b border-border">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Saldo final do período</p>
+                        <p className="text-3xl font-bold text-foreground">R$ {formatCurrency(resumo.saldo_final)}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between"><span className="text-sm text-muted-foreground">Saldo inicial</span><span className="font-medium text-foreground">{formatCurrency(resumo.saldo_inicial)}</span></div>
+                        <div className="flex justify-between"><span className="text-sm text-muted-foreground">Rendimento líquido</span><span className="font-medium text-foreground">+{formatCurrency(resumo.rendimento_liquido)}</span></div>
+                        <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total de entradas</span><span className="font-medium text-nu-green">+{formatCurrency(resumo.total_entradas)}</span></div>
+                        <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total de saídas</span><span className="font-medium text-destructive">-{formatCurrency(resumo.total_saidas)}</span></div>
+                        <div className="flex justify-between border-t border-border pt-2"><span className="font-semibold text-foreground">Saldo final do período</span><span className="font-bold text-foreground">{formatCurrency(resumo.saldo_final)}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Movimentações */}
+                    <h3 className="font-bold text-foreground mb-6">Movimentações</h3>
+
+                    {datasOrdenadas.length === 0 && (
+                      <p className="text-muted-foreground text-center py-4">Nenhuma movimentação encontrada no período.</p>
+                    )}
+
+                    {datasOrdenadas.map(data => {
+                      const trans = movimentacoes[data];
+                      const entradas = trans.filter((t: any) => t.tipo === "entrada");
+                      const saidas = trans.filter((t: any) => t.tipo === "saida");
+                      const totalDiaEntradas = entradas.reduce((s: number, t: any) => s + parseFloat(t.valor), 0);
+                      const totalDiaSaidas = saidas.reduce((s: number, t: any) => s + parseFloat(t.valor), 0);
+
+                      const dataFormatada = new Date(data + "T12:00:00").toLocaleDateString("pt-BR", {
+                        day: "2-digit", month: "short", year: "numeric",
+                      }).toUpperCase().replace(".", "");
+
+                      return (
+                        <div key={data} className="mb-6 pb-6 border-b border-border last:border-0">
+                          <h4 className="font-bold text-sm text-foreground mb-4">{dataFormatada}</h4>
+
+                          {entradas.length > 0 && (
+                            <>
+                              <div className="flex justify-between mb-2">
+                                <span className="font-semibold text-sm text-foreground">Total de entradas</span>
+                                <span className="font-semibold text-sm text-nu-green">+ {formatCurrency(totalDiaEntradas)}</span>
+                              </div>
+                              {entradas.map((t: any) => (
+                                <div key={t.id} className="flex justify-between py-2 pl-4 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">{t.descricao}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {t.beneficiario_nome} - {t.beneficiario_documento} - {t.beneficiario_banco} Agência: {t.beneficiario_agencia} Conta: {t.beneficiario_conta}
+                                    </p>
+                                  </div>
+                                  <span className="font-medium text-foreground whitespace-nowrap ml-4">{formatCurrency(parseFloat(t.valor))}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+
+                          {saidas.length > 0 && (
+                            <>
+                              <div className="flex justify-between mb-2 mt-4">
+                                <span className="font-semibold text-sm text-foreground">Total de saídas</span>
+                                <span className="font-semibold text-sm text-destructive">- {formatCurrency(totalDiaSaidas)}</span>
+                              </div>
+                              {saidas.map((t: any) => (
+                                <div key={t.id} className="flex justify-between py-2 pl-4 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">{t.descricao}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {t.beneficiario_nome} - {t.beneficiario_documento} - {t.beneficiario_banco} Agência: {t.beneficiario_agencia} Conta: {t.beneficiario_conta}
+                                    </p>
+                                  </div>
+                                  <span className="font-medium text-foreground whitespace-nowrap ml-4">{formatCurrency(parseFloat(t.valor))}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Footer */}
+                    <div className="text-xs text-muted-foreground mt-8 pt-4 border-t border-border space-y-1">
+                      <p>Tem alguma dúvida? Mande uma mensagem para nosso time de atendimento pelo chat do app ou ligue 4020 0185.</p>
+                      <p>Extrato gerado dia {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -358,14 +427,127 @@ const Admin = () => {
                 <CardTitle className="text-lg text-foreground">Clientes cadastrados</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">Nenhum cliente cadastrado ainda. Os clientes aparecerão aqui quando se registrarem pela página de cadastro.</p>
+                {loading ? (
+                  <p className="text-muted-foreground">Carregando...</p>
+                ) : usuarios.length === 0 ? (
+                  <p className="text-muted-foreground">Nenhum cliente cadastrado ainda.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Documento</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>E-mail</TableHead>
+                        <TableHead>Conta</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Saldo</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usuarios.map(u => (
+                        <TableRow key={u.id}>
+                          <TableCell className="font-medium">{u.nome || "—"}</TableCell>
+                          <TableCell className="text-sm">{u.documento || "—"}</TableCell>
+                          <TableCell>
+                            <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-foreground">
+                              {u.tipo_conta}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm">{u.email}</TableCell>
+                          <TableCell className="text-sm">{u.numero_conta || "—"}</TableCell>
+                          <TableCell>
+                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                              u.status === "ativo" ? "bg-nu-green/10 text-nu-green" :
+                              u.status === "pendente" ? "bg-yellow-100 text-yellow-700" :
+                              "bg-destructive/10 text-destructive"
+                            }`}>
+                              {u.status === "ativo" ? "Ativo" : u.status === "pendente" ? "Pendente" : "Bloqueado"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            R$ {formatCurrency(parseFloat(String(u.saldo || 0)))}
+                          </TableCell>
+                          <TableCell>
+                            {u.status === "pendente" && (
+                              <Button size="sm" variant="outline" className="text-nu-green border-nu-green hover:bg-nu-green/10" onClick={() => handleStatusChange(u.id, "ativo")}>
+                                Ativar
+                              </Button>
+                            )}
+                            {u.status === "ativo" && (
+                              <Button size="sm" variant="outline" className="text-destructive border-destructive hover:bg-destructive/10" onClick={() => handleStatusChange(u.id, "bloqueado")}>
+                                Bloquear
+                              </Button>
+                            )}
+                            {u.status === "bloqueado" && (
+                              <Button size="sm" variant="outline" className="text-nu-green border-nu-green hover:bg-nu-green/10" onClick={() => handleStatusChange(u.id, "ativo")}>
+                                Reativar
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Exportar Extrato */}
+          <TabsContent value="exportar">
+            <ExportarExtrato selectedConta={selectedConta} contaInfo={contaInfo} />
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
 };
+
+// Export component
+function ExportarExtrato({ selectedConta, contaInfo }: { selectedConta: string; contaInfo: any }) {
+  const navigate = useNavigate();
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
+
+  const handleContinuar = () => {
+    if (!selectedConta) {
+      toast.error("Selecione uma conta primeiro");
+      return;
+    }
+    if (!dataInicio || !dataFim) {
+      toast.error("Selecione o período");
+      return;
+    }
+    navigate(`/extrato-export?conta_id=${selectedConta}&data_inicio=${dataInicio}&data_fim=${dataFim}`);
+  };
+
+  return (
+    <Card className="nu-card border-0">
+      <CardHeader>
+        <CardTitle className="text-lg text-foreground">Exportar Extrato em PDF</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-6">
+          Selecione o período desejado para gerar uma pré-visualização do extrato no formato A4, pronto para exportar como PDF.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <Label>Data início *</Label>
+            <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} required />
+          </div>
+          <div>
+            <Label>Data fim *</Label>
+            <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} required />
+          </div>
+        </div>
+        <Button variant="hero" onClick={handleContinuar}>
+          <FileText className="h-4 w-4 mr-2" /> Continuar
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default Admin;

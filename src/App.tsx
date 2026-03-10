@@ -8,6 +8,7 @@ import Cadastro from "./pages/Cadastro.tsx";
 import Login from "./pages/Login.tsx";
 import Admin from "./pages/Admin.tsx";
 import Painel from "./pages/Painel.tsx";
+import ExtratoExport from "./pages/ExtratoExport.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/painel" element={<Painel />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/extrato-export" element={<ExtratoExport />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, User, Building2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
+import { ESTADOS_BR } from "@/lib/estados";
 
 const Cadastro = () => {
   const [searchParams] = useSearchParams();
@@ -164,7 +166,14 @@ const Cadastro = () => {
                     </div>
                     <div>
                       <Label htmlFor="pf-estado">Estado *</Label>
-                      <Input id="pf-estado" required value={pf.estado} onChange={e => handlePfChange("estado", e.target.value)} placeholder="UF" />
+                      <Select value={pf.estado} onValueChange={v => handlePfChange("estado", v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
+                        <SelectContent>
+                          {ESTADOS_BR.map(e => (
+                            <SelectItem key={e.sigla} value={e.sigla}>{e.sigla} - {e.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
@@ -274,7 +283,14 @@ const Cadastro = () => {
                     </div>
                     <div>
                       <Label htmlFor="pj-estado">Estado *</Label>
-                      <Input id="pj-estado" required value={pj.estado} onChange={e => handlePjChange("estado", e.target.value)} placeholder="UF" />
+                      <Select value={pj.estado} onValueChange={v => handlePjChange("estado", v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
+                        <SelectContent>
+                          {ESTADOS_BR.map(e => (
+                            <SelectItem key={e.sigla} value={e.sigla}>{e.sigla} - {e.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
