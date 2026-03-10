@@ -44,6 +44,24 @@ const Admin = () => {
   const [contas, setContas] = useState<ContaOption[]>([]);
   const [selectedConta, setSelectedConta] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Auth check - redirect if not admin
+  useEffect(() => {
+    const user = localStorage.getItem("nu_user") || sessionStorage.getItem("nu_user");
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(user);
+      if (!parsed.is_admin) {
+        navigate("/painel");
+      }
+    } catch {
+      navigate("/login");
+    }
+  }, [navigate]);
 
   // Extrato state
   const [extratoData, setExtratoData] = useState<any>(null);
