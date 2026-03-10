@@ -166,7 +166,14 @@ const Cadastro = () => {
                     </div>
                     <div>
                       <Label htmlFor="pf-estado">Estado *</Label>
-                      <Input id="pf-estado" required value={pf.estado} onChange={e => handlePfChange("estado", e.target.value)} placeholder="UF" />
+                      <Select value={pf.estado} onValueChange={v => handlePfChange("estado", v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
+                        <SelectContent>
+                          {ESTADOS_BR.map(e => (
+                            <SelectItem key={e.sigla} value={e.sigla}>{e.sigla} - {e.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
