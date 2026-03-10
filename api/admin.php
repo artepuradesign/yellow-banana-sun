@@ -8,43 +8,60 @@
  */
 require_once 'config.php';
 
-$pdo = getConnection();
+try {
+    $pdo = getConnection();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Erro de conexão com o banco']);
+    exit();
+}
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     if ($action === 'usuarios') {
-        $stmt = $pdo->query("
-            SELECT u.id, u.email, u.tipo_conta, u.status, u.is_admin, u.created_at, u.ultimo_acesso,
-                COALESCE(pf.nome_completo, pj.razao_social) as nome,
-                COALESCE(pf.cpf, pj.cnpj) as documento,
-                pf.telefone as telefone_pf, pj.telefone as telefone_pj,
-                c.id as conta_id, c.numero_conta, c.agencia, c.saldo
-            FROM usuarios u
-            LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
-            LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
-            LEFT JOIN contas c ON c.usuario_id = u.id
-            WHERE u.is_admin = 0
-            ORDER BY u.created_at DESC
-        ");
-        echo json_encode(['usuarios' => $stmt->fetchAll()]);
+        try {
+            $stmt = $pdo->query("
+                SELECT u.id, u.email, u.tipo_conta, u.status, u.is_admin, u.created_at, u.ultimo_acesso,
+                    COALESCE(pf.nome_completo, pj.razao_social) as nome,
+                    COALESCE(pf.cpf, pj.cnpj) as documento,
+                    pf.telefone as telefone_pf, pj.telefone as telefone_pj,
+                    c.id as conta_id, c.numero_conta, c.agencia, c.saldo
+                FROM usuarios u
+                LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
+                LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
+                LEFT JOIN contas c ON c.usuario_id = u.id
+                WHERE u.is_admin = 0
+                ORDER BY u.created_at DESC
+            ");
+            $usuarios = $stmt->fetchAll();
+            echo json_encode(['usuarios' => $usuarios]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao buscar usuários: ' . $e->getMessage()]);
+        }
         exit();
     }
 
     if ($action === 'contas') {
-        $stmt = $pdo->query("
-            SELECT c.*, u.tipo_conta, u.email, u.status,
-                COALESCE(pf.nome_completo, pj.razao_social) as titular,
-                COALESCE(pf.cpf, pj.cnpj) as documento
-            FROM contas c
-            JOIN usuarios u ON u.id = c.usuario_id
-            LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
-            LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
-            WHERE u.is_admin = 0
-            ORDER BY c.id DESC
-        ");
-        echo json_encode(['contas' => $stmt->fetchAll()]);
+        try {
+            $stmt = $pdo->query("
+                SELECT c.*, u.tipo_conta, u.email, u.status,
+                    COALESCE(pf.nome_completo, pj.razao_social) as titular,
+                    COALESCE(pf.cpf, pj.cnpj) as documento
+                FROM contas c
+                JOIN usuarios u ON u.id = c.usuario_id
+                LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
+                LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
+                WHERE u.is_admin = 0
+                ORDER BY c.id DESC
+            ");
+            echo json_encode(['contas' => $stmt->fetchAll()]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao buscar contas: ' . $e->getMessage()]);
+        }
         exit();
     }
 
@@ -53,83 +70,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $dataInicio = $_GET['data_inicio'] ?? date('Y-m-d', strtotime('-1 year'));
         $dataFim = $_GET['data_fim'] ?? date('Y-m-d');
 
-        // Dados da conta
-        $stmt = $pdo->prepare("
-            SELECT c.*, u.tipo_conta,
-                COALESCE(pf.nome_completo, pj.razao_social) as titular,
-                COALESCE(pf.cpf, pj.cnpj) as documento
-            FROM contas c
-            JOIN usuarios u ON u.id = c.usuario_id
-            LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
-            LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
-            WHERE c.id = ?
-        ");
-        $stmt->execute([$contaId]);
-        $conta = $stmt->fetch();
+        try {
+            // Dados da conta
+            $stmt = $pdo->prepare("
+                SELECT c.*, u.tipo_conta,
+                    COALESCE(pf.nome_completo, pj.razao_social) as titular,
+                    COALESCE(pf.cpf, pj.cnpj) as documento
+                FROM contas c
+                JOIN usuarios u ON u.id = c.usuario_id
+                LEFT JOIN pessoas_fisicas pf ON pf.usuario_id = u.id
+                LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
+                WHERE c.id = ?
+            ");
+            $stmt->execute([$contaId]);
+            $conta = $stmt->fetch();
 
-        if (!$conta) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Conta não encontrada']);
-            exit();
-        }
-
-        // Transações
-        $stmt = $pdo->prepare("
-            SELECT * FROM transacoes
-            WHERE conta_id = ? AND DATE(data_transacao) BETWEEN ? AND ?
-            ORDER BY data_transacao ASC
-        ");
-        $stmt->execute([$contaId, $dataInicio, $dataFim]);
-        $transacoes = $stmt->fetchAll();
-
-        // Saldo inicial
-        $stmtSaldo = $pdo->prepare("SELECT saldo_anterior FROM transacoes WHERE conta_id = ? AND DATE(data_transacao) >= ? ORDER BY data_transacao ASC LIMIT 1");
-        $stmtSaldo->execute([$contaId, $dataInicio]);
-        $primeira = $stmtSaldo->fetch();
-        $saldoInicial = $primeira ? floatval($primeira['saldo_anterior']) : floatval($conta['saldo']);
-
-        // Totais
-        $totalEntradas = 0;
-        $totalSaidas = 0;
-        $rendimentoLiquido = 0;
-        foreach ($transacoes as $t) {
-            if ($t['tipo'] === 'entrada') {
-                $totalEntradas += floatval($t['valor']);
-                if ($t['categoria'] === 'RENDIMENTO') {
-                    $rendimentoLiquido += floatval($t['valor']);
-                }
-            } else {
-                $totalSaidas += floatval($t['valor']);
+            if (!$conta) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Conta não encontrada']);
+                exit();
             }
-        }
-        $saldoFinal = $saldoInicial + $totalEntradas - $totalSaidas;
 
-        // Agrupar por dia
-        $porDia = [];
-        foreach ($transacoes as $t) {
-            $dia = date('Y-m-d', strtotime($t['data_transacao']));
-            if (!isset($porDia[$dia])) $porDia[$dia] = [];
-            $porDia[$dia][] = $t;
-        }
+            // Transações
+            $stmt = $pdo->prepare("
+                SELECT * FROM transacoes
+                WHERE conta_id = ? AND DATE(data_transacao) BETWEEN ? AND ?
+                ORDER BY data_transacao ASC
+            ");
+            $stmt->execute([$contaId, $dataInicio, $dataFim]);
+            $transacoes = $stmt->fetchAll();
 
-        echo json_encode([
-            'conta' => [
-                'titular' => $conta['titular'],
-                'documento' => $conta['documento'],
-                'tipo_conta' => $conta['tipo_conta'],
-                'agencia' => $conta['agencia'],
-                'numero_conta' => $conta['numero_conta'],
-            ],
-            'periodo' => ['inicio' => $dataInicio, 'fim' => $dataFim],
-            'resumo' => [
-                'saldo_inicial' => $saldoInicial,
-                'total_entradas' => $totalEntradas,
-                'total_saidas' => $totalSaidas,
-                'rendimento_liquido' => $rendimentoLiquido,
-                'saldo_final' => $saldoFinal,
-            ],
-            'movimentacoes' => $porDia,
-        ]);
+            // Saldo inicial
+            $stmtSaldo = $pdo->prepare("SELECT saldo_anterior FROM transacoes WHERE conta_id = ? AND DATE(data_transacao) >= ? ORDER BY data_transacao ASC LIMIT 1");
+            $stmtSaldo->execute([$contaId, $dataInicio]);
+            $primeira = $stmtSaldo->fetch();
+            $saldoInicial = $primeira ? floatval($primeira['saldo_anterior']) : floatval($conta['saldo']);
+
+            // Totais
+            $totalEntradas = 0;
+            $totalSaidas = 0;
+            $rendimentoLiquido = 0;
+            foreach ($transacoes as $t) {
+                if ($t['tipo'] === 'entrada') {
+                    $totalEntradas += floatval($t['valor']);
+                    if ($t['categoria'] === 'RENDIMENTO') {
+                        $rendimentoLiquido += floatval($t['valor']);
+                    }
+                } else {
+                    $totalSaidas += floatval($t['valor']);
+                }
+            }
+            $saldoFinal = $saldoInicial + $totalEntradas - $totalSaidas;
+
+            // Agrupar por dia
+            $porDia = [];
+            foreach ($transacoes as $t) {
+                $dia = date('Y-m-d', strtotime($t['data_transacao']));
+                if (!isset($porDia[$dia])) $porDia[$dia] = [];
+                $porDia[$dia][] = $t;
+            }
+
+            echo json_encode([
+                'conta' => [
+                    'titular' => $conta['titular'],
+                    'documento' => $conta['documento'],
+                    'tipo_conta' => $conta['tipo_conta'],
+                    'agencia' => $conta['agencia'],
+                    'numero_conta' => $conta['numero_conta'],
+                ],
+                'periodo' => ['inicio' => $dataInicio, 'fim' => $dataFim],
+                'resumo' => [
+                    'saldo_inicial' => $saldoInicial,
+                    'total_entradas' => $totalEntradas,
+                    'total_saidas' => $totalSaidas,
+                    'rendimento_liquido' => $rendimentoLiquido,
+                    'saldo_final' => $saldoFinal,
+                ],
+                'movimentacoes' => $porDia,
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao buscar transações: ' . $e->getMessage()]);
+        }
         exit();
     }
 
@@ -143,11 +165,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $data['action'] ?? '';
 
     if ($action === 'ativar_usuario') {
-        $userId = intval($data['usuario_id']);
-        $status = $data['status']; // 'ativo', 'bloqueado', 'pendente'
-        $stmt = $pdo->prepare("UPDATE usuarios SET status = ? WHERE id = ? AND is_admin = 0");
-        $stmt->execute([$status, $userId]);
-        echo json_encode(['success' => true, 'message' => 'Status atualizado']);
+        try {
+            $userId = intval($data['usuario_id']);
+            $status = $data['status']; // 'ativo', 'bloqueado', 'pendente'
+            $stmt = $pdo->prepare("UPDATE usuarios SET status = ? WHERE id = ? AND is_admin = 0");
+            $stmt->execute([$status, $userId]);
+            echo json_encode(['success' => true, 'message' => 'Status atualizado']);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao atualizar status: ' . $e->getMessage()]);
+        }
         exit();
     }
 
