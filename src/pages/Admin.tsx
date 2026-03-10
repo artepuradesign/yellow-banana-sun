@@ -453,6 +453,12 @@ const Admin = () => {
               <CardContent>
                 {loading ? (
                   <p className="text-muted-foreground">Carregando...</p>
+                ) : errorMsg ? (
+                  <div className="text-center py-4">
+                    <p className="text-destructive mb-2">Erro ao carregar clientes:</p>
+                    <p className="text-sm text-muted-foreground">{errorMsg}</p>
+                    <Button variant="outline" size="sm" className="mt-4" onClick={fetchUsuarios}>Tentar novamente</Button>
+                  </div>
                 ) : usuarios.length === 0 ? (
                   <p className="text-muted-foreground">Nenhum cliente cadastrado ainda.</p>
                 ) : (
