@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action === 'usuarios') {
         try {
             $stmt = $pdo->query("
-                SELECT u.id, u.email, u.tipo_conta, u.status, u.is_admin, u.created_at, u.ultimo_acesso,
+                SELECT u.id, u.email, u.tipo_conta, u.status, u.is_admin, u.criado_em, u.ultimo_acesso,
                     COALESCE(pf.nome_completo, pj.razao_social) as nome,
                     COALESCE(pf.cpf, pj.cnpj) as documento,
                     pf.telefone as telefone_pf, pj.telefone as telefone_pj,
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 LEFT JOIN pessoas_juridicas pj ON pj.usuario_id = u.id
                 LEFT JOIN contas c ON c.usuario_id = u.id
                 WHERE u.is_admin = 0
-                ORDER BY u.created_at DESC
+                ORDER BY u.criado_em DESC
             ");
             $usuarios = $stmt->fetchAll();
             echo json_encode(['usuarios' => $usuarios]);
