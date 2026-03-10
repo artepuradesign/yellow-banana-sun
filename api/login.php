@@ -18,13 +18,13 @@ try {
 
     // Determinar tipo de login: CPF, CNPJ ou Email
     if (!empty($data['cpf'])) {
-        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_fisicas pf ON pf.usuario_id = u.id WHERE pf.cpf = ?");
+        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.pin_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_fisicas pf ON pf.usuario_id = u.id WHERE pf.cpf = ?");
         $stmt->execute([$data['cpf']]);
     } elseif (!empty($data['cnpj'])) {
-        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_juridicas pj ON pj.usuario_id = u.id WHERE pj.cnpj = ?");
+        $stmt = $pdo->prepare("SELECT u.id, u.email, u.senha_hash, u.pin_hash, u.tipo_conta, u.status, u.is_admin FROM usuarios u INNER JOIN pessoas_juridicas pj ON pj.usuario_id = u.id WHERE pj.cnpj = ?");
         $stmt->execute([$data['cnpj']]);
     } elseif (!empty($data['email'])) {
-        $stmt = $pdo->prepare("SELECT id, email, senha_hash, tipo_conta, status, is_admin FROM usuarios WHERE email = ?");
+        $stmt = $pdo->prepare("SELECT id, email, senha_hash, pin_hash, tipo_conta, status, is_admin FROM usuarios WHERE email = ?");
         $stmt->execute([$data['email']]);
     } else {
         http_response_code(400);
@@ -34,7 +34,11 @@ try {
 
     $user = $stmt->fetch();
 
-    if (!$user || !password_verify($data['senha'], $user['senha_hash'])) {
+    // Verificar senha OU PIN
+    $senhaValida = $user && password_verify($data['senha'], $user['senha_hash']);
+    $pinValido = $user && !empty($user['pin_hash']) && preg_match('/^\d{4}$/', $data['senha']) && password_verify($data['senha'], $user['pin_hash']);
+
+    if (!$senhaValida && !$pinValido) {
         http_response_code(401);
         echo json_encode(['error' => 'Credenciais inválidas']);
         exit();
