@@ -180,6 +180,19 @@ const Cadastro = () => {
                     </div>
                   </div>
 
+                  <div className="space-y-4">
+                    <SectionTitle>PIN de transações (4 dígitos)</SectionTitle>
+                    <p className="text-xs text-muted-foreground">Este PIN será usado para autorizar transferências e também pode ser usado para login.</p>
+                    <div>
+                      <Label htmlFor="pf-pin">PIN *</Label>
+                      <Input id="pf-pin" type="password" required value={pf.pin} onChange={e => handlePfChange("pin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
+                    </div>
+                    <div>
+                      <Label htmlFor="pf-confirmar-pin">Confirmar PIN *</Label>
+                      <Input id="pf-confirmar-pin" type="password" required value={pf.confirmarPin} onChange={e => handlePfChange("confirmarPin", e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 dígitos" maxLength={4} inputMode="numeric" />
+                    </div>
+                  </div>
+
                   <Button type="submit" variant="hero" className="w-full py-5 rounded-xl" disabled={loading}>
                     {loading ? "Cadastrando..." : "Criar minha conta"}
                   </Button>
