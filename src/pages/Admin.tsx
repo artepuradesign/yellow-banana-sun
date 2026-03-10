@@ -188,7 +188,11 @@ const Admin = () => {
             <h1 className="text-2xl font-extrabold nu-text-gradient">NU</h1>
             <span className="text-sm text-muted-foreground font-medium bg-secondary px-3 py-1 rounded-full">Administração</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+          <Button variant="ghost" size="sm" onClick={() => {
+            localStorage.removeItem("nu_user");
+            sessionStorage.removeItem("nu_user");
+            navigate("/login");
+          }}>
             <LogOut className="h-4 w-4 mr-2" /> Sair
           </Button>
         </div>
