@@ -283,7 +283,14 @@ const Cadastro = () => {
                     </div>
                     <div>
                       <Label htmlFor="pj-estado">Estado *</Label>
-                      <Input id="pj-estado" required value={pj.estado} onChange={e => handlePjChange("estado", e.target.value)} placeholder="UF" />
+                      <Select value={pj.estado} onValueChange={v => handlePjChange("estado", v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o estado" /></SelectTrigger>
+                        <SelectContent>
+                          {ESTADOS_BR.map(e => (
+                            <SelectItem key={e.sigla} value={e.sigla}>{e.sigla} - {e.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

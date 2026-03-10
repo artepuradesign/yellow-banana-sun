@@ -31,12 +31,22 @@ try {
         throw new Exception('E-mail inválido');
     }
 
+    // Verificar e-mail duplicado
+    $stmt = $pdo->prepare("SELECT id FROM usuarios WHERE email = ?");
+    $stmt->execute([$email]);
+    if ($stmt->fetch()) {
+        throw new Exception('Este e-mail já está cadastrado. Utilize outro e-mail ou faça login.');
+    }
+
     // PIN de 4 dígitos (obrigatório)
     $pin = $data['pin'] ?? '';
     if (!preg_match('/^\d{4}$/', $pin)) {
         throw new Exception('PIN deve ter exatamente 4 dígitos numéricos');
     }
     $pinHash = password_hash($pin, PASSWORD_BCRYPT);
+
+    // Limitar estado a 2 caracteres (UF)
+    $estado = substr($data['estado'] ?? '', 0, 2);
 
     // Criar usuário
     $stmt = $pdo->prepare("INSERT INTO usuarios (email, senha_hash, pin_hash, tipo_conta) VALUES (?, ?, ?, ?)");
@@ -45,9 +55,21 @@ try {
 
     // Dados específicos PF ou PJ
     if ($tipo === 'PF') {
+        // Verificar CPF duplicado
+        $stmt = $pdo->prepare("SELECT id FROM pessoas_fisicas WHERE cpf = ?");
+        $stmt->execute([$data['cpf']]);
+        if ($stmt->fetch()) {
+            throw new Exception('Este CPF já está cadastrado.');
+        }
         $stmt = $pdo->prepare("INSERT INTO pessoas_fisicas (usuario_id, nome_completo, cpf, data_nascimento, telefone) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$userId, $data['nome'], $data['cpf'], $data['dataNascimento'], $data['telefone']]);
     } else {
+        // Verificar CNPJ duplicado
+        $stmt = $pdo->prepare("SELECT id FROM pessoas_juridicas WHERE cnpj = ?");
+        $stmt->execute([$data['cnpj']]);
+        if ($stmt->fetch()) {
+            throw new Exception('Este CNPJ já está cadastrado.');
+        }
         $stmt = $pdo->prepare("INSERT INTO pessoas_juridicas (usuario_id, razao_social, nome_fantasia, cnpj, inscricao_estadual, telefone, responsavel_nome, responsavel_cpf, responsavel_telefone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $userId, $data['razaoSocial'], $data['nomeFantasia'] ?? null,
@@ -58,7 +80,7 @@ try {
 
     // Endereço
     $stmt = $pdo->prepare("INSERT INTO enderecos (usuario_id, cep, logradouro, numero, complemento, bairro, cidade, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $data['cep'], $data['endereco'], $data['numero'], $data['complemento'] ?? null, $data['bairro'], $data['cidade'], $data['estado']]);
+    $stmt->execute([$userId, $data['cep'], $data['endereco'], $data['numero'], $data['complemento'] ?? null, $data['bairro'], $data['cidade'], $estado]);
 
     // Criar conta bancária
     $numeroConta = str_pad(mt_rand(100000000, 999999999), 9, '0', STR_PAD_LEFT) . '-' . mt_rand(0, 9);

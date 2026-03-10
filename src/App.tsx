@@ -25,6 +25,7 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/painel" element={<Painel />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/extrato-export" element={<ExtratoExport />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
