@@ -50,9 +50,11 @@ const Cadastro = () => {
   const handleSubmitPj = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pj.senha !== pj.confirmarSenha) { toast.error("As senhas não conferem!"); return; }
+    if (pj.pin !== pj.confirmarPin) { toast.error("Os PINs não conferem!"); return; }
+    if (!/^\d{4}$/.test(pj.pin)) { toast.error("O PIN deve ter exatamente 4 dígitos numéricos!"); return; }
     setLoading(true);
     try {
-      await apiPost("cadastro.php", { tipo: "PJ", razaoSocial: pj.razaoSocial, nomeFantasia: pj.nomeFantasia, cnpj: pj.cnpj, inscricaoEstadual: pj.inscricaoEstadual, email: pj.email, telefone: pj.telefone, senha: pj.senha, responsavelNome: pj.responsavelNome, responsavelCpf: pj.responsavelCpf, responsavelTelefone: pj.responsavelTelefone, cep: pj.cep, endereco: pj.endereco, numero: pj.numero, complemento: pj.complemento, bairro: pj.bairro, cidade: pj.cidade, estado: pj.estado });
+      await apiPost("cadastro.php", { tipo: "PJ", razaoSocial: pj.razaoSocial, nomeFantasia: pj.nomeFantasia, cnpj: pj.cnpj, inscricaoEstadual: pj.inscricaoEstadual, email: pj.email, telefone: pj.telefone, senha: pj.senha, pin: pj.pin, responsavelNome: pj.responsavelNome, responsavelCpf: pj.responsavelCpf, responsavelTelefone: pj.responsavelTelefone, cep: pj.cep, endereco: pj.endereco, numero: pj.numero, complemento: pj.complemento, bairro: pj.bairro, cidade: pj.cidade, estado: pj.estado });
       toast.success("Cadastro realizado com sucesso!");
       setSubmitted(true);
     } catch (err: unknown) {
