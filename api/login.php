@@ -59,6 +59,7 @@ try {
     $stmt->execute([$user['id'], $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '']);
 
     unset($user['senha_hash']);
+    unset($user['pin_hash']);
     echo json_encode(['success' => true, 'user' => $user]);
 } catch (Exception $e) {
     http_response_code(500);
