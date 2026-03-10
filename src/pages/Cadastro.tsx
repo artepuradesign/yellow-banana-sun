@@ -18,13 +18,13 @@ const Cadastro = () => {
   const [loading, setLoading] = useState(false);
 
   const [pf, setPf] = useState({
-    nome: "", cpf: "", dataNascimento: "", email: "", telefone: "", senha: "", confirmarSenha: "",
+    nome: "", cpf: "", dataNascimento: "", email: "", telefone: "", senha: "", confirmarSenha: "", pin: "", confirmarPin: "",
     cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
   });
 
   const [pj, setPj] = useState({
     razaoSocial: "", nomeFantasia: "", cnpj: "", inscricaoEstadual: "",
-    email: "", telefone: "", senha: "", confirmarSenha: "",
+    email: "", telefone: "", senha: "", confirmarSenha: "", pin: "", confirmarPin: "",
     cep: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", estado: "",
     responsavelNome: "", responsavelCpf: "", responsavelTelefone: "",
   });
