@@ -35,9 +35,11 @@ const Cadastro = () => {
   const handleSubmitPf = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pf.senha !== pf.confirmarSenha) { toast.error("As senhas não conferem!"); return; }
+    if (pf.pin !== pf.confirmarPin) { toast.error("Os PINs não conferem!"); return; }
+    if (!/^\d{4}$/.test(pf.pin)) { toast.error("O PIN deve ter exatamente 4 dígitos numéricos!"); return; }
     setLoading(true);
     try {
-      await apiPost("cadastro.php", { tipo: "PF", nome: pf.nome, cpf: pf.cpf, dataNascimento: pf.dataNascimento, email: pf.email, telefone: pf.telefone, senha: pf.senha, cep: pf.cep, endereco: pf.endereco, numero: pf.numero, complemento: pf.complemento, bairro: pf.bairro, cidade: pf.cidade, estado: pf.estado });
+      await apiPost("cadastro.php", { tipo: "PF", nome: pf.nome, cpf: pf.cpf, dataNascimento: pf.dataNascimento, email: pf.email, telefone: pf.telefone, senha: pf.senha, pin: pf.pin, cep: pf.cep, endereco: pf.endereco, numero: pf.numero, complemento: pf.complemento, bairro: pf.bairro, cidade: pf.cidade, estado: pf.estado });
       toast.success("Cadastro realizado com sucesso!");
       setSubmitted(true);
     } catch (err: unknown) {
